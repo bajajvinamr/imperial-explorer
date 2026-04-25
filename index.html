@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Product Explorer — Tractor Systems</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter+Tight:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e1012;
+    --bg-2: #15181c;
+    --panel: rgba(22, 25, 29, 0.88);
+    --ink: #e8ebef;
+    --ink-dim: #9099a3;
+    --ink-faint: #5a636d;
+    --line: rgba(232, 235, 239, 0.07);
+    --line-strong: rgba(232, 235, 239, 0.14);
+    --line-hairline: rgba(232, 235, 239, 0.045);
+    --brand: oklch(0.78 0.10 75);
+    --brand-soft: oklch(0.78 0.10 75 / 0.12);
+    --brand-line: oklch(0.78 0.10 75 / 0.45);
+    --accent: oklch(0.72 0.04 220);
+    --positive: oklch(0.72 0.11 150);
+    --warn: oklch(0.78 0.14 65);
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+    --sans: 'Inter Tight', -apple-system, system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-feature-settings: "ss01", "cv11";
+    -webkit-font-smoothing: antialiased;
+  }
+  #stage {
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at 50% 60%, #1a1e22 0%, #0e1012 55%, #07090b 100%);
+  }
+  canvas { display: block; outline: none; }
+
+  /* ===== App header ===== */
+  .appbar {
+    position: fixed; top: 0; left: 0; right: 0;
+    height: 52px;
+    display: flex; align-items: center;
+    padding: 0 20px;
+    background: #15181c;
+    border-bottom: 1px solid var(--line-strong);
+    z-index: 20; gap: 20px;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    padding-right: 20px;
+    border-right: 1px solid var(--line);
+    height: 100%;
+  }
+  .brand-mark { width: 22px; height: 22px; display: grid; place-items: center; }
+  .brand-mark svg { width: 22px; height: 22px; }
+  .brand-name { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; color: var(--ink); }
+  .brand-name .slash { color: var(--brand); margin: 0 1px; }
+
+  .crumbs {
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--mono); font-size: 11px;
+    color: var(--ink-dim); letter-spacing: 0.02em; white-space: nowrap;
+  }
+  .crumbs .sep { color: var(--ink-faint); }
+  .crumbs .here { color: var(--ink); }
+  .crumbs .rev {
+    font-size: 10px; padding: 2px 6px;
+    border: 1px solid var(--line-strong); border-radius: 2px;
+    color: var(--ink-dim); margin-left: 4px;
+  }
+  .appbar-right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+  .appbtn {
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-dim); background: transparent;
+    border: 1px solid transparent; padding: 7px 11px;
+    cursor: pointer; border-radius: 3px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .appbtn:hover { color: var(--ink); border-color: var(--line-strong); background: rgba(255,255,255,0.02); }
+  .appbtn svg { width: 12px; height: 12px; }
+  .appbtn.primary { color: var(--ink); border-color: var(--line-strong); background: rgba(255,255,255,0.03); }
+  .divider-v { width: 1px; height: 20px; background: var(--line); margin: 0 4px; }
+  .fps-chip {
+    font-family: var(--mono); font-size: 10px;
+    color: var(--ink-faint); letter-spacing: 0.08em;
+    padding: 6px 8px; border-left: 1px solid var(--line); margin-left: 6px;
+  }
+
+  /* ===== Context strip ===== */
+  .context-strip {
+    position: fixed; top: 52px; left: 0; right: 0;
+    height: 38px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(14,16,18,0.55);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    display: flex; align-items: center;
+    padding: 0 20px; gap: 22px; z-index: 15;
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink-dim); white-space: nowrap; overflow: hidden;
+  }
+  .context-strip .ctx { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+  .context-strip .ctx .k { color: var(--ink-faint); }
+  .context-strip .ctx .v { color: var(--ink); }
+  .context-strip .ctx .v.brand { color: var(--brand); }
+
+  @media (max-width: 1100px) {
+    .hide-narrow { display: none !important; }
+    .parts-panel { width: 240px; }
+    .info-panel { width: 320px; }
+  }
+
+  /* ===== Branded pill ===== */
+  .part-row.branded .name::after {
+    content: "ORIGINAL";
+    display: inline-block; margin-left: 8px;
+    font-family: var(--mono); font-size: 8.5px;
+    letter-spacing: 0.12em; color: var(--brand);
+    border: 1px solid var(--brand-line); background: var(--brand-soft);
+    padding: 1.5px 5px; border-radius: 2px;
+    vertical-align: 1px; font-weight: 500;
+  }
+  .part-row.branded.selected { background: rgba(198, 154, 90, 0.08); border-color: var(--brand-line); }
+  .brand-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 9.5px;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--brand); padding: 3px 8px;
+    border: 1px solid var(--brand-line); background: var(--brand-soft);
+    border-radius: 2px; margin-bottom: 14px;
+  }
+
+  /* ===== Callouts ===== */
+  .callout {
+    position: absolute; pointer-events: none; z-index: 7;
+    opacity: 0; transition: opacity .5s;
+    transform: translate(-50%, -100%); width: 200px;
+  }
+  .callout.on { opacity: 1; }
+  .callout .card {
+    background: rgba(14,16,18,0.95); border: 1px solid var(--brand-line);
+    border-radius: 3px; padding: 8px 10px;
+    text-align: left; display: flex; align-items: center;
+    gap: 9px; white-space: nowrap;
+  }
+  .callout .num {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 1px solid var(--brand-line); background: var(--brand-soft);
+    color: var(--brand); font-family: var(--mono); font-size: 9px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .callout .text { display: flex; flex-direction: column; line-height: 1.1; }
+  .callout .kicker {
+    font-family: var(--mono); font-size: 8.5px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--brand); margin-bottom: 3px;
+  }
+  .callout .cname { font-size: 11.5px; color: var(--ink); font-weight: 500; letter-spacing: -0.005em; }
+  .callout .line { width: 1px; height: 40px; background: var(--brand-line); margin: 0 auto; }
+  .callout .tip {
+    width: 6px; height: 6px; background: var(--brand); border-radius: 50%;
+    margin: 0 auto; box-shadow: 0 0 0 3px rgba(198, 154, 90, 0.18);
+  }
+
+  /* ===== Parts panel ===== */
+  .parts-panel {
+    position: fixed; left: 20px; top: 110px;
+    width: 280px; max-height: calc(100vh - 200px);
+    z-index: 5; pointer-events: auto;
+    background: var(--panel); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 14px; display: flex; flex-direction: column;
+  }
+  .panel-head {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--ink-faint);
+    padding: 2px 2px 10px;
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid var(--line); margin-bottom: 8px;
+  }
+  .panel-head .count { font-size: 9.5px; color: var(--ink-faint); }
+  .parts-list { display: flex; flex-direction: column; gap: 1px; overflow-y: auto; }
+  .part-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 8px; border: 1px solid transparent;
+    cursor: pointer; transition: background .12s, color .12s;
+    font-size: 12px; color: var(--ink-dim); border-radius: 3px; position: relative;
+  }
+  .part-row:hover { color: var(--ink); background: rgba(255,255,255,0.025); }
+  .part-row.selected { color: var(--ink); background: rgba(255,255,255,0.05); border-color: var(--line-strong); }
+  .part-row .idx { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); min-width: 18px; }
+  .part-row .name { flex: 1; letter-spacing: -0.005em; }
+  .part-row .count-badge {
+    font-family: var(--mono); font-size: 9px; color: var(--ink-faint);
+    background: rgba(255,255,255,0.04); border: 1px solid var(--line);
+    padding: 1px 5px; border-radius: 2px; letter-spacing: 0.05em;
+  }
+  .part-row .status { width: 6px; height: 6px; border-radius: 50%; background: var(--ink-faint); }
+  .part-row.selected .status { background: var(--ink); }
+
+  /* ===== Info panel ===== */
+  .info-panel {
+    position: fixed; top: 110px; right: 20px; bottom: 100px;
+    width: 380px;
+    background: var(--panel); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--line); border-radius: 6px;
+    z-index: 5; opacity: 0; transform: translateX(8px);
+    pointer-events: none; transition: opacity .25s, transform .25s;
+    display: flex; flex-direction: column;
+  }
+  .info-panel.visible { opacity: 1; pointer-events: auto; transform: translateX(0); }
+  .info-head {
+    padding: 18px 20px 14px; border-bottom: 1px solid var(--line); position: relative;
+  }
+  .info-close {
+    position: absolute; top: 14px; right: 14px;
+    width: 24px; height: 24px; border: 1px solid var(--line);
+    background: transparent; color: var(--ink-dim); cursor: pointer;
+    font-family: var(--mono); font-size: 13px; line-height: 1;
+    border-radius: 3px; display: grid; place-items: center;
+  }
+  .info-close:hover { color: var(--ink); border-color: var(--line-strong); background: rgba(255,255,255,0.03); }
+  .info-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 8px; }
+  .info-title { font-size: 20px; font-weight: 500; letter-spacing: -0.015em; margin-bottom: 4px; line-height: 1.15; padding-right: 30px; }
+  .info-sub { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); letter-spacing: 0.04em; }
+
+  .status-strip { display: flex; border-bottom: 1px solid var(--line); }
+  .status-cell { flex: 1; padding: 11px 14px; border-right: 1px solid var(--line); }
+  .status-cell:last-child { border-right: none; }
+  .status-cell .k { font-family: var(--mono); font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 4px; }
+  .status-cell .v { font-size: 12px; color: var(--ink); font-weight: 500; letter-spacing: -0.005em; display: flex; align-items: center; gap: 5px; }
+  .status-cell .v .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .status-cell .v .dot.ok { background: var(--positive); }
+  .status-cell .v .dot.warn { background: var(--warn); }
+
+  .tabs { display: flex; padding: 0 14px; border-bottom: 1px solid var(--line); gap: 2px; }
+  .tab {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--ink-faint);
+    background: transparent; border: none; padding: 11px 10px;
+    cursor: pointer; border-bottom: 1px solid transparent; margin-bottom: -1px;
+  }
+  .tab:hover { color: var(--ink-dim); }
+  .tab.active { color: var(--ink); border-bottom-color: var(--ink); }
+
+  .info-body { flex: 1; overflow-y: auto; padding: 18px 20px; }
+  .info-desc { font-size: 13px; line-height: 1.55; color: var(--ink-dim); margin-bottom: 16px; text-wrap: pretty; }
+
+  /* Parts sub-list in Overview tab */
+  .sub-parts { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+  .sub-part-row {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 10px 10px 10px;
+    border: 1px solid var(--line-hairline);
+    border-radius: 3px;
+    background: rgba(255,255,255,0.015);
+    cursor: pointer; transition: background .1s, border-color .1s;
+  }
+  .sub-part-row:hover { background: rgba(255,255,255,0.035); border-color: var(--line-strong); }
+  .sub-part-row .sp-num {
+    font-family: var(--mono); font-size: 9.5px; color: var(--ink-faint);
+    min-width: 22px; padding-top: 1px;
+  }
+  .sub-part-row .sp-info { flex: 1; }
+  .sub-part-row .sp-name { font-size: 12px; color: var(--ink); font-weight: 500; letter-spacing: -0.005em; margin-bottom: 3px; }
+  .sub-part-row .sp-meta { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); letter-spacing: 0.03em; line-height: 1.5; }
+  .sub-part-row .sp-pressure {
+    font-family: var(--mono); font-size: 9.5px; color: var(--accent);
+    padding: 2px 6px; border: 1px solid rgba(114,180,194,0.2);
+    background: rgba(114,180,194,0.06); border-radius: 2px;
+    white-space: nowrap; align-self: flex-start; margin-top: 1px;
+  }
+
+  .specs { display: flex; flex-direction: column; }
+  .spec-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--line-hairline); font-size: 12px; }
+  .spec-row:last-child { border-bottom: none; }
+  .spec-row .k { font-family: var(--mono); color: var(--ink-faint); letter-spacing: 0.04em; text-transform: uppercase; font-size: 10.5px; }
+  .spec-row .v { font-family: var(--mono); color: var(--ink); font-size: 11.5px; text-align: right; }
+  .spec-row .v.accent { color: var(--brand); font-weight: 500; }
+
+  .info-foot { padding: 14px 16px; border-top: 1px solid var(--line); display: flex; gap: 8px; }
+  .btn {
+    flex: 1; padding: 10px 14px; border: 1px solid var(--line-strong);
+    background: transparent; color: var(--ink);
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    cursor: pointer; border-radius: 3px; transition: background .12s, border-color .12s;
+  }
+  .btn:hover { background: rgba(255,255,255,0.035); border-color: var(--ink-faint); }
+  .btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink); font-weight: 500; }
+  .btn.primary:hover { background: #fff; border-color: #fff; }
+
+  /* ===== Bottom bar ===== */
+  .bottom-bar {
+    position: fixed; bottom: 20px; left: 50%;
+    transform: translateX(-50%); z-index: 10;
+    display: flex; align-items: stretch;
+    border: 1px solid var(--line); border-radius: 6px;
+    background: var(--panel); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    padding: 5px; gap: 1px;
+  }
+  .ctrl {
+    background: transparent; border: none; color: var(--ink-dim);
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 9px 14px; cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+    border-radius: 3px; transition: color .12s, background .12s; white-space: nowrap;
+  }
+  .ctrl:hover { color: var(--ink); background: rgba(255,255,255,0.03); }
+  .ctrl.active { color: var(--ink); background: rgba(255,255,255,0.06); }
+  .ctrl .kbd { font-size: 9px; padding: 2px 5px; border: 1px solid var(--line-strong); color: var(--ink-faint); border-radius: 2px; line-height: 1; }
+  .ctrl-divider { width: 1px; background: var(--line); margin: 4px 2px; }
+
+  .slider-wrap { display: flex; align-items: center; gap: 10px; padding: 0 14px; min-width: 200px; }
+  .slider-wrap label { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); }
+  input[type=range] { -webkit-appearance: none; appearance: none; flex: 1; height: 2px; background: var(--line-strong); outline: none; border-radius: 2px; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 10px; background: var(--ink); border-radius: 50%; cursor: pointer; }
+  input[type=range]::-moz-range-thumb { width: 10px; height: 10px; background: var(--ink); border-radius: 50%; cursor: pointer; border: none; }
+  .slider-val { font-family: var(--mono); font-size: 10.5px; color: var(--ink); min-width: 34px; text-align: right; }
+
+  /* ===== Hover tag ===== */
+  .hover-tag {
+    position: fixed; pointer-events: none; z-index: 8;
+    font-family: var(--mono); font-size: 10.5px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--ink); background: rgba(10,12,15,0.85);
+    border: 1px solid var(--line-strong); padding: 5px 9px;
+    border-radius: 2px; transform: translate(14px, -50%);
+    opacity: 0; transition: opacity .12s; white-space: nowrap;
+  }
+  .hover-tag.visible { opacity: 1; }
+  .hover-tag::before {
+    content: ""; position: absolute; left: -10px; top: 50%;
+    width: 8px; height: 1px; background: var(--accent);
+  }
+
+  /* ===== Loading ===== */
+  #loader {
+    position: fixed; inset: 0;
+    display: grid; place-items: center;
+    background: var(--bg); z-index: 100; transition: opacity .5s;
+  }
+  #loader.done { opacity: 0; pointer-events: none; }
+  .loader-inner { text-align: center; font-family: var(--mono); }
+  .loader-bar { width: 200px; height: 1px; background: var(--line); margin-top: 16px; overflow: hidden; position: relative; }
+  .loader-bar::before { content: ""; position: absolute; inset: 0; background: var(--accent); transform: translateX(-100%); animation: load 1.5s ease-in-out infinite; }
+  @keyframes load { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+  .loader-text { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-dim); }
+
+  /* ===== Part label in 3D ===== */
+  .part-label {
+    position: absolute; pointer-events: none;
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.1em; color: var(--accent);
+    text-transform: uppercase; transform: translate(-50%, -50%); white-space: nowrap;
+  }
+  .part-label::before {
+    content: ""; display: inline-block; width: 6px; height: 6px;
+    border: 1px solid var(--accent); margin-right: 6px; vertical-align: middle;
+    transform: rotate(45deg);
+  }
+
+  /* Scrollbar */
+  .parts-list::-webkit-scrollbar, .info-body::-webkit-scrollbar { width: 3px; }
+  .parts-list::-webkit-scrollbar-track, .info-body::-webkit-scrollbar-track { background: transparent; }
+  .parts-list::-webkit-scrollbar-thumb, .info-body::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div id="loader">
+  <div class="loader-inner">
+    <div class="loader-text">Initializing assembly · <span id="load-pct">0%</span></div>
+    <div class="loader-bar"></div>
+  </div>
+</div>
+
+<div id="stage"></div>
+
+<header class="appbar">
+  <div class="brand">
+    <div class="brand-mark">
+      <svg viewBox="0 0 22 22" fill="none">
+        <path d="M3 19 L11 3 L19 19" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" style="color: var(--ink)"/>
+        <line x1="7" y1="13" x2="15" y2="13" stroke="currentColor" stroke-width="1.4" style="color: var(--brand)"/>
+      </svg>
+    </div>
+    <div class="brand-name">Axis<span class="slash">/</span>One</div>
+  </div>
+  <nav class="crumbs">
+    <span class="hide-narrow">Catalog</span>
+    <span class="sep hide-narrow">/</span>
+    <span class="hide-narrow">Tractor Systems</span>
+    <span class="sep hide-narrow">/</span>
+    <span class="here">AX-340</span>
+    <span class="rev">32 Parts · 5 Systems</span>
+  </nav>
+  <div class="appbar-right">
+    <button class="appbtn hide-narrow">
+      <svg viewBox="0 0 12 12" fill="none"><path d="M6 1 V9 M3 6 L6 9 L9 6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><line x1="2" y1="11" x2="10" y2="11" stroke="currentColor" stroke-width="1.2"/></svg>
+      Export BOM
+    </button>
+    <button class="appbtn hide-narrow">
+      <svg viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.2"/><line x1="6" y1="4" x2="6" y2="6.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="6" cy="8.5" r="0.6" fill="currentColor"/></svg>
+      Docs
+    </button>
+    <div class="divider-v hide-narrow"></div>
+    <button class="appbtn primary">Share</button>
+    <div class="fps-chip" id="fps-chip">— fps</div>
+  </div>
+</header>
+
+<div class="context-strip">
+  <div class="ctx"><span class="k">Model</span> <span class="v">AX-340</span></div>
+  <div class="ctx hide-narrow"><span class="k">Total Parts</span> <span class="v">32</span></div>
+  <div class="ctx"><span class="k">Systems</span> <span class="v">5 Groups</span></div>
+  <div class="ctx"><span class="k">Originals</span> <span class="v brand">2 systems</span></div>
+  <div class="ctx hide-narrow" style="margin-left:auto;"><span class="k">Mode</span> <span class="v" id="mode-label">Assembly</span></div>
+</div>
+
+<aside class="parts-panel">
+  <div class="panel-head">
+    <span>Systems</span>
+    <span class="count" id="part-count">5 systems</span>
+  </div>
+  <div class="parts-list" id="parts-list"></div>
+</aside>
+
+<aside class="info-panel" id="info-panel">
+  <div class="info-head">
+    <button class="info-close" id="info-close">×</button>
+    <div class="info-label" id="info-label">System · —</div>
+    <h2 class="info-title" id="info-title">—</h2>
+    <div class="info-sub" id="info-sub">—</div>
+  </div>
+
+  <div class="status-strip">
+    <div class="status-cell">
+      <div class="k">Stock</div>
+      <div class="v"><span class="dot ok"></span><span id="stat-stock">—</span></div>
+    </div>
+    <div class="status-cell">
+      <div class="k">Lead time</div>
+      <div class="v" id="stat-lead">—</div>
+    </div>
+    <div class="status-cell">
+      <div class="k">Parts</div>
+      <div class="v" id="stat-parts">—</div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="overview">Parts</button>
+    <button class="tab" data-tab="specs">Specs</button>
+  </div>
+
+  <div class="info-body">
+    <div class="tab-pane" data-pane="overview">
+      <p class="info-desc" id="info-desc">—</p>
+      <div class="sub-parts" id="sub-parts"></div>
+    </div>
+    <div class="tab-pane" data-pane="specs" style="display:none;">
+      <div class="specs" id="specs"></div>
+    </div>
+  </div>
+
+  <div class="info-foot">
+    <button class="btn" id="btn-isolate">Isolate</button>
+    <button class="btn primary">Request Quote</button>
+  </div>
+</aside>
+
+<div class="bottom-bar">
+  <button class="ctrl" id="btn-explode">
+    <span>Explode</span>
+    <span class="kbd">E</span>
+  </button>
+  <button class="ctrl" id="btn-reset">
+    <span>Reset</span>
+    <span class="kbd">R</span>
+  </button>
+  <div class="ctrl-divider"></div>
+  <div class="slider-wrap">
+    <label>Sep</label>
+    <input type="range" id="explode-slider" min="0" max="100" value="0" />
+    <div class="slider-val" id="explode-val">0%</div>
+  </div>
+  <div class="ctrl-divider"></div>
+  <button class="ctrl" id="btn-labels"><span>Labels</span></button>
+</div>
+
+<div class="hover-tag" id="hover-tag"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ---- Real parts data from master list ----
+const SYSTEMS = {
+  engine: {
+    name: 'Engine System',
+    code: 'SYS-ENG',
+    branded: true,
+    badge: 'Axis/One Original',
+    desc: 'Fuel delivery and oil monitoring circuits for the AX-340 powerplant. High-pressure CRDI rails, nylon and metal fuel tubes, dipstick guides, and PTFE high-temp assemblies.',
+    color: 0xc94b2a,
+    stock: 'In stock',
+    lead: '3–5 days',
+    partCount: 9,
+    parts: [
+      { num: 1, name: 'CRDI High-Pressure Tube', meta: '6 mm – 1″ · High-tensile CDS steel · –40 to +150 °C', pressure: '3,000 bar' },
+      { num: 2, name: 'Nylon Fuel Tube', meta: '6 – 25 mm · Nylon · –40 to +100 °C', pressure: '20 bar' },
+      { num: 3, name: 'Metal Fuel Tube', meta: '6 mm – 1″ · CDS/ERW/CDW/SS · –40 to +150 °C', pressure: '200 bar' },
+      { num: 4, name: 'Pressure Sensing Tube', meta: '1/4″ – 3/4″ · CDS/ERW/CDW/SS · –40 to +150 °C', pressure: '200 bar' },
+      { num: 5, name: 'Dipstick Tube', meta: '6 mm – 1″ · SS · –40 to +150 °C', pressure: 'Atmospheric' },
+      { num: 6, name: 'PTFE High-Pressure Hose', meta: '3/16″ – 1/2″ · PTFE (Teflon) · –40 to +260 °C', pressure: '300 bar' },
+      { num: 7, name: 'Feed Pump to Filter Pipe', meta: '6 – 25 mm · CDS/ERW/CDW · –40 to +150 °C', pressure: '200 bar' },
+      { num: 8, name: 'In-Tank Suction Strainer', meta: '10 – 40 mm · CDS/ERW/CDW · –40 to +150 °C', pressure: '100 bar' },
+      { num: 9, name: 'Nylon Dipstick Guide Tube', meta: '4 – 16 mm · Nylon · –40 to +150 °C', pressure: 'Atmospheric' },
+    ],
+    specs: [
+      ['Max pressure', '3,000 bar (CRDI)'],
+      ['Temp range', '–40 °C to +260 °C'],
+      ['Materials', 'CDS / SS / Nylon / PTFE'],
+      ['Compliance', 'EU Stage V · CRDI certified'],
+      ['Media', 'Diesel / Petrol / Engine oil'],
+    ],
+  },
+  aftertreatment: {
+    name: 'Aftertreatment System',
+    code: 'SYS-AFT',
+    branded: true,
+    badge: 'Axis/One Original',
+    desc: 'Exhaust gas recirculation, turbocharger drain, and differential-pressure monitoring. Stainless-steel construction throughout for sustained high-temp service.',
+    color: 0x9aa0a6,
+    stock: 'In stock',
+    lead: '1 week',
+    partCount: 4,
+    parts: [
+      { num: 10, name: 'EGR Tube', meta: '12 – 48 mm dia. · Stainless steel · Up to +800 °C', pressure: '8 bar' },
+      { num: 11, name: 'DP Tube Assembly', meta: '10 – 25 mm · Silicone + SS · –60 to +250 °C', pressure: '3.0 – 9.0 bar' },
+      { num: 12, name: 'PTFE Turbo Drain Hose', meta: '1/8″ – 1-1/2″ · PTFE + SS braid · –40 to +260 °C', pressure: '100 bar' },
+      { num: 13, name: 'Turbocharger Oil Drain Tube', meta: '5 – 16 mm · CDS (plated) / SS · –40 to +200 °C', pressure: '10 bar' },
+    ],
+    specs: [
+      ['Max temp (EGR)', '+800 °C'],
+      ['Max pressure', '100 bar (PTFE drain)'],
+      ['Materials', 'SS / PTFE / Silicone'],
+      ['Compliance', 'EU Stage V · DPF certified'],
+      ['Emission reduction', '94% vs Stage-IV'],
+    ],
+  },
+  cooling: {
+    name: 'Cooling & Air System',
+    code: 'SYS-COL',
+    branded: false,
+    desc: 'Complete thermal and air-intake circuit: coolant hoses, intercooler loops, silicone intake elbows, turbocharger charge-air routing, and DP sensing for the exhaust.',
+    color: 0x2563a8,
+    stock: 'In stock',
+    lead: '5–7 days',
+    partCount: 13,
+    parts: [
+      { num: 14, name: 'Moulded Rubber Drain Hose', meta: '1/2″+ · Silicone/EPDM/FKM · –40 to +150 °C', pressure: '7 bar' },
+      { num: 15, name: 'Intercooler Coolant Hose', meta: '6 – 150 mm ID · Silicone/EPDM · –40 to +150 °C', pressure: '8 bar' },
+      { num: 16, name: 'Moulded Radiator Hose', meta: '6 – 150 mm ID · Silicone/EPDM · –40 to +150 °C', pressure: '8 bar' },
+      { num: 17, name: 'Silicone Coolant Hose', meta: '6 – 150 mm ID · Silicone/EPDM · –40 to +250 °C', pressure: '8 bar' },
+      { num: 18, name: 'Silicone Elbow — Air Inlet', meta: '6 – 150 mm ID · Silicone/EPDM/CR · –40 to +250 °C', pressure: '8 bar' },
+      { num: 19, name: 'Silicone Air Intake Hose', meta: '6 – 150 mm ID · Silicone/EPDM/CR · –40 to +250 °C', pressure: '8 bar' },
+      { num: 20, name: 'Silicone T-Hose — Air Intake', meta: '6 – 150 mm ID · Silicone/EPDM/CR · –40 to +250 °C', pressure: '8 bar' },
+      { num: 21, name: 'Air Cleaner Hose', meta: '6 – 150 mm ID · Silicone/EPDM/CR · –40 to +250 °C', pressure: '8 bar' },
+      { num: 22, name: 'Silicone Turbocharger Hose', meta: '6 – 150 mm ID · Silicone/EPDM · –40 to +250 °C', pressure: '7 bar' },
+      { num: 23, name: 'CAC Hose (Charge Air Cooler)', meta: '6 – 150 mm ID · Silicone/EPDM · –40 to +250 °C', pressure: '7 bar' },
+      { num: 24, name: 'Differential Pressure Hose', meta: '6 – 150 mm ID · Silicone/EPDM · –40 to +250 °C', pressure: '7 bar' },
+      { num: 25, name: 'Silicone Air Intake Hose (Short)', meta: '6 – 150 mm ID · Silicone/EPDM · –40 to +250 °C', pressure: '7 bar' },
+      { num: 26, name: 'TC-to-Intercooler Pipe Assembly', meta: '6 – 150 mm ID · Moulded + metal tube · –40 to +150 °C', pressure: '50 bar' },
+    ],
+    specs: [
+      ['Max coolant temp', '+250 °C (silicone)'],
+      ['Max pressure', '50 bar (TC-to-IC pipe)'],
+      ['Materials', 'Silicone / EPDM / CR / Metal'],
+      ['Part count', '13 components'],
+      ['Application', 'Coolant · Air intake · Boost'],
+    ],
+  },
+  hydraulic: {
+    name: 'Hydraulic System',
+    code: 'SYS-HYD',
+    branded: false,
+    desc: 'Power-transmission lines for the hydraulic pump, control valves, and tractor trolley. Rigid metal tubes for fixed routing; hose assemblies absorb vibration at joints.',
+    color: 0x2f3a44,
+    stock: 'Made-to-order',
+    lead: '2–3 weeks',
+    partCount: 3,
+    parts: [
+      { num: 27, name: 'Hydraulic Hose + Metal Tube', meta: '1/8″ – 2″ · NBR/Thermoplastic/Nylon · –40 to +150 °C', pressure: '5 – 500 bar' },
+      { num: 28, name: 'Hydraulic Oil Metal Tube', meta: '6 – 50 mm · CDS/ERW/CDW · –40 to +150 °C', pressure: '100 bar' },
+      { num: 29, name: 'Coolant Return Metal Tube', meta: '6 – 50 mm · SS/CDS/CDW/ERW · –40 to +150 °C', pressure: '100 bar' },
+    ],
+    specs: [
+      ['Max pressure', '500 bar (hose assembly)'],
+      ['Temp range', '–40 °C to +150 °C'],
+      ['Materials', 'NBR / Thermoplastic / CDS / SS'],
+      ['Application', 'Pump · Valve · Actuator · Trolley'],
+      ['Part count', '3 components'],
+    ],
+  },
+  hvac: {
+    name: 'HVAC System',
+    code: 'SYS-HVC',
+    branded: false,
+    desc: 'Refrigerant circuit connecting compressor, condenser, and evaporator. Veneer/barrier inner layer is mandatory for refrigerant containment (R-134a / R-1234yf).',
+    color: 0x1f242a,
+    stock: 'In stock',
+    lead: '1–2 weeks',
+    partCount: 3,
+    parts: [
+      { num: 30, name: 'AC Hose Assembly — Type A', meta: '3/8″ – 3/4″ · EPDM/IIR/Nylon · –30 to +140 °C', pressure: 'Suction 1.7 / Liquid 35 bar' },
+      { num: 31, name: 'AC Hose Assembly — Type B', meta: '3/8″ – 3/4″ · EPDM/IIR/Nylon · –30 to +140 °C', pressure: 'Suction 1.7 / Liquid 35 bar' },
+      { num: 32, name: 'AC Hose Assembly — Type C', meta: '3/8″ – 3/4″ · EPDM/IIR/Nylon · –30 to +140 °C', pressure: 'Suction 1.7 / Discharge 35 bar' },
+    ],
+    specs: [
+      ['Refrigerant', 'R-134a / HFC / R-1234yf'],
+      ['Discharge pressure', '35 bar'],
+      ['Suction pressure', '1.7 bar'],
+      ['Temp range', '–30 °C to +140 °C'],
+      ['Inner construction', 'Barrier/veneer (refrigerant-tight)'],
+    ],
+  },
+};
+
+// ---- Scene setup ----
+const stage = document.getElementById('stage');
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x0a0c0f, 12, 40);
+
+const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.1, 200);
+camera.position.set(6, 4, 7);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+stage.appendChild(renderer.domElement);
+
+const hemi = new THREE.HemisphereLight(0xcfe4ef, 0x0a0c0f, 0.5);
+scene.add(hemi);
+
+const keyLight = new THREE.DirectionalLight(0xffffff, 2.2);
+keyLight.position.set(6, 10, 4);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(2048, 2048);
+keyLight.shadow.camera.near = 1;
+keyLight.shadow.camera.far = 30;
+keyLight.shadow.camera.left = -8; keyLight.shadow.camera.right = 8;
+keyLight.shadow.camera.top = 8; keyLight.shadow.camera.bottom = -8;
+keyLight.shadow.bias = -0.0005;
+scene.add(keyLight);
+
+const rim = new THREE.DirectionalLight(0x66c4d6, 0.8);
+rim.position.set(-4, 3, -6);
+scene.add(rim);
+scene.add(new THREE.AmbientLight(0xffffff, 0.2));
+
+const groundGeo = new THREE.CircleGeometry(14, 64);
+const groundMat = new THREE.MeshStandardMaterial({ color: 0x0d1116, roughness: 0.9, metalness: 0 });
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI / 2; ground.position.y = -0.01; ground.receiveShadow = true;
+scene.add(ground);
+
+const grid = new THREE.GridHelper(20, 40, 0x1a2028, 0x12171c);
+grid.material.transparent = true; grid.material.opacity = 0.4;
+scene.add(grid);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.minDistance = 3; controls.maxDistance = 18;
+controls.maxPolarAngle = Math.PI * 0.49;
+controls.target.set(0, 0.9, 0);
+
+// ---- Build tractor procedurally ----
+const tractor = new THREE.Group();
+scene.add(tractor);
+const parts = [];
+
+function mkMat(color, rough = 0.4, metal = 0.3) {
+  return new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal });
+}
+
+function registerPart(group, key, explodeDir) {
+  group.userData.partKey = key;
+  group.userData.homePos = group.position.clone();
+  group.userData.explodeDir = explodeDir.clone();
+  group.traverse(o => {
+    if (o.isMesh) {
+      o.castShadow = true; o.receiveShadow = true;
+      o.userData.partKey = key;
+    }
+  });
+  parts.push(group);
+  tractor.add(group);
+}
+
+const paint    = mkMat(0xc94b2a, 0.35, 0.25);
+const darkMetal = mkMat(0x2a2f35, 0.45, 0.7);
+const chrome   = mkMat(0xb4bac2, 0.2, 0.9);
+const rubber   = mkMat(0x161616, 0.9, 0);
+const glass    = new THREE.MeshPhysicalMaterial({ color: 0x88a8b8, roughness: 0.05, metalness: 0, transmission: 0.85, thickness: 0.3, ior: 1.4 });
+const plastic  = mkMat(0x1f242a, 0.6, 0.1);
+const seatMat  = mkMat(0x0f1216, 0.85, 0);
+const engineMat = mkMat(0x2f3a44, 0.4, 0.6);
+const coolBlue = mkMat(0x1a3a5c, 0.5, 0.4);
+const headlightMat = new THREE.MeshStandardMaterial({ color: 0xffe9b0, emissive: 0xffb040, emissiveIntensity: 0.6, roughness: 0.2 });
+
+// --- ENGINE SYSTEM (body + chassis) ---
+const bodyG = new THREE.Group();
+const chassis = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.35, 0.9), darkMetal);
+chassis.position.y = 0.75; bodyG.add(chassis);
+const hood = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.85, 1.05), paint);
+hood.position.set(0.8, 1.18, 0); bodyG.add(hood);
+const hoodTop = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.1, 1.0), paint);
+hoodTop.position.set(0.8, 1.66, 0); bodyG.add(hoodTop);
+const grille = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.55, 0.85), mkMat(0x0d1014, 0.7, 0.3));
+grille.position.set(1.63, 1.1, 0); bodyG.add(grille);
+for (let i = 0; i < 5; i++) {
+  const slat = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.04, 0.78), chrome);
+  slat.position.set(1.66, 0.9 + i * 0.1, 0); bodyG.add(slat);
+}
+for (const z of [-0.38, 0.38]) {
+  const hl = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.08, 24), headlightMat);
+  hl.rotation.z = Math.PI / 2; hl.position.set(1.66, 1.35, z); bodyG.add(hl);
+}
+for (const z of [-0.75, 0.75]) {
+  const fender = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.15, 24, 1, false, 0, Math.PI), paint);
+  fender.rotation.x = Math.PI / 2; fender.position.set(-0.9, 0.75, z); bodyG.add(fender);
+}
+for (const z of [-0.58, 0.58]) {
+  const ff = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.1, 20, 1, false, 0, Math.PI), paint);
+  ff.rotation.x = Math.PI / 2; ff.position.set(1.15, 0.6, z); bodyG.add(ff);
+}
+const axleF = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.2, 1.3), darkMetal);
+axleF.position.set(1.15, 0.4, 0); bodyG.add(axleF);
+registerPart(bodyG, 'engine', new THREE.Vector3(0, 0.8, 0));
+
+// --- AFTERTREATMENT (engine block + exhaust) ---
+const engineG = new THREE.Group();
+const block = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.7, 0.8), engineMat);
+engineG.add(block);
+for (let i = 0; i < 3; i++) {
+  const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.25, 16), chrome);
+  cyl.position.set(-0.35 + i * 0.35, 0.47, 0); engineG.add(cyl);
+  for (let j = 0; j < 4; j++) {
+    const fin = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.01, 6, 16), chrome);
+    fin.rotation.x = Math.PI / 2; fin.position.set(-0.35 + i * 0.35, 0.4 + j * 0.05, 0); engineG.add(fin);
+  }
+}
+const pulley = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.08, 20), chrome);
+pulley.rotation.z = Math.PI / 2; pulley.position.set(0.6, 0, 0); engineG.add(pulley);
+engineG.position.set(0.8, 1.2, 0);
+registerPart(engineG, 'aftertreatment', new THREE.Vector3(0, 2.2, 0));
+
+// Exhaust stack (part of aftertreatment)
+const exhaustG = new THREE.Group();
+const stack = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.1, 16), chrome);
+stack.position.y = 0.55; exhaustG.add(stack);
+const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.06, 0.04, 16), chrome);
+cap.position.y = 1.12; exhaustG.add(cap);
+const flange = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.04, 16), darkMetal);
+flange.position.y = 0.02; exhaustG.add(flange);
+exhaustG.position.set(1.2, 1.68, -0.38);
+registerPart(exhaustG, 'aftertreatment', new THREE.Vector3(0.3, 2.4, -0.4));
+
+// --- HVAC (operator station / cabin) ---
+const cabinG = new THREE.Group();
+const floor = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.06, 1.0), darkMetal);
+floor.position.set(-0.3, 1.0, 0); cabinG.add(floor);
+const seatBase = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 0.5), seatMat);
+seatBase.position.set(-0.55, 1.32, 0); cabinG.add(seatBase);
+const seatBack = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.55, 0.5), seatMat);
+seatBack.position.set(-0.75, 1.6, 0); cabinG.add(seatBack);
+const col = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.75, 12), plastic);
+col.position.set(-0.1, 1.5, 0); col.rotation.z = -0.3; cabinG.add(col);
+const steeringWheel = new THREE.Mesh(new THREE.TorusGeometry(0.18, 0.02, 8, 32), plastic);
+steeringWheel.position.set(0.0, 1.82, 0); steeringWheel.rotation.y = Math.PI / 2; steeringWheel.rotation.x = 0.3; cabinG.add(steeringWheel);
+for (let i = 0; i < 3; i++) {
+  const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.18, 0.015), plastic);
+  spoke.position.set(0.0, 1.82, 0); spoke.rotation.x = 0.3;
+  spoke.rotation.y = Math.PI / 2; spoke.rotation.z = (i / 3) * Math.PI * 2; cabinG.add(spoke);
+}
+const ropsL = new THREE.Mesh(new THREE.BoxGeometry(0.05, 1.1, 0.05), darkMetal);
+ropsL.position.set(-0.9, 1.7, -0.48); cabinG.add(ropsL);
+const ropsR = ropsL.clone(); ropsR.position.z = 0.48; cabinG.add(ropsR);
+const ropsTop = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 1.0), darkMetal);
+ropsTop.position.set(-0.9, 2.23, 0); cabinG.add(ropsTop);
+const dash = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.18, 0.4), plastic);
+dash.position.set(0.05, 1.55, 0); cabinG.add(dash);
+registerPart(cabinG, 'hvac', new THREE.Vector3(-0.5, 1.8, 0));
+
+// --- HYDRAULIC (underframe) ---
+const hydG = new THREE.Group();
+const hydBeam = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.12, 0.4), mkMat(0x1a2a38, 0.6, 0.6));
+hydBeam.position.set(0, 0.35, 0); hydG.add(hydBeam);
+for (let i = 0; i < 4; i++) {
+  const hose = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.5, 8), mkMat(0x0a1420, 0.8, 0.2));
+  hose.position.set(-0.9 + i * 0.6, 0.55, 0.22); hydG.add(hose);
+}
+const pump = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.28, 0.35), mkMat(0x263040, 0.5, 0.5));
+pump.position.set(-0.5, 0.56, -0.35); hydG.add(pump);
+const valve = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.22, 0.18), mkMat(0x1c2d3a, 0.4, 0.6));
+valve.position.set(0.2, 0.56, -0.35); hydG.add(valve);
+registerPart(hydG, 'hydraulic', new THREE.Vector3(0, -0.8, 0));
+
+// --- COOLING & AIR (wheels + radiator) ---
+function buildWheel(big) {
+  const g = new THREE.Group();
+  const r = big ? 0.62 : 0.38;
+  const w = big ? 0.3 : 0.22;
+  const tire = new THREE.Mesh(new THREE.CylinderGeometry(r, r, w, 32), rubber);
+  tire.rotation.x = Math.PI / 2; g.add(tire);
+  for (let i = 0; i < 16; i++) {
+    const lug = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, w * 0.85), rubber);
+    const a = (i / 16) * Math.PI * 2;
+    lug.position.x = Math.cos(a) * r; lug.position.y = Math.sin(a) * r;
+    lug.rotation.z = a + Math.PI / 2; g.add(lug);
+  }
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.45, r * 0.45, w * 1.05, 20), darkMetal);
+  hub.rotation.x = Math.PI / 2; g.add(hub);
+  const hubcap = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.15, r * 0.15, w * 1.1, 16), chrome);
+  hubcap.rotation.x = Math.PI / 2; g.add(hubcap);
+  for (let i = 0; i < 6; i++) {
+    const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, w * 1.1, 6), chrome);
+    bolt.rotation.x = Math.PI / 2;
+    const a = (i / 6) * Math.PI * 2;
+    bolt.position.x = Math.cos(a) * r * 0.3; bolt.position.y = Math.sin(a) * r * 0.3; g.add(bolt);
+  }
+  return g;
+}
+
+const wheelRL = buildWheel(true); wheelRL.position.set(-0.9, 0.62, 0.75);
+registerPart(wheelRL, 'cooling', new THREE.Vector3(0, 0, 2.2));
+const wheelRR = buildWheel(true); wheelRR.position.set(-0.9, 0.62, -0.75);
+registerPart(wheelRR, 'cooling', new THREE.Vector3(0, 0, -2.2));
+const wheelFL = buildWheel(false); wheelFL.position.set(1.15, 0.38, 0.58);
+registerPart(wheelFL, 'cooling', new THREE.Vector3(0.8, 0, 1.8));
+const wheelFR = buildWheel(false); wheelFR.position.set(1.15, 0.38, -0.58);
+registerPart(wheelFR, 'cooling', new THREE.Vector3(0.8, 0, -1.8));
+
+// Radiator block (cooling system visual)
+const radG = new THREE.Group();
+const rad = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.7, 0.95), coolBlue);
+rad.position.set(1.72, 1.1, 0); radG.add(rad);
+for (let i = 0; i < 7; i++) {
+  const fin2 = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.55, 0.03), mkMat(0x1a3a5c, 0.3, 0.7));
+  fin2.position.set(1.73, 1.1, -0.36 + i * 0.12); radG.add(fin2);
+}
+registerPart(radG, 'cooling', new THREE.Vector3(0.6, 0, 0));
+
+tractor.position.y = 0.01;
+
+// ---- Raycasting ----
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+let hovered = null;
+let selected = null;
+let isolateMode = false;
+
+function partFromIntersect(intersects) {
+  for (const hit of intersects) {
+    let o = hit.object;
+    while (o) { if (o.userData.partKey) return o; o = o.parent; }
+  }
+  return null;
+}
+
+const originalEmissive = new Map();
+function setHighlight(group, color) {
+  group.traverse(o => {
+    if (!o.isMesh) return;
+    if (!originalEmissive.has(o)) {
+      originalEmissive.set(o, { color: o.material.emissive ? o.material.emissive.clone() : null, intensity: o.material.emissiveIntensity ?? 0 });
+    }
+    if (o.material.emissive) {
+      if (color === null) {
+        const orig = originalEmissive.get(o);
+        o.material.emissive.copy(orig.color);
+        o.material.emissiveIntensity = orig.intensity;
+      } else {
+        o.material.emissive.setHex(color);
+        o.material.emissiveIntensity = 0.35;
+      }
+    }
+  });
+}
+function clearHighlight(group) { setHighlight(group, null); }
+
+renderer.domElement.addEventListener('pointermove', e => {
+  pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+  pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(parts, true);
+  const grp = partFromIntersect(hits);
+  if (grp !== hovered) {
+    if (hovered && hovered !== selected) clearHighlight(hovered);
+    hovered = grp;
+    if (hovered && hovered !== selected) setHighlight(hovered, 0x66c4d6);
+    renderer.domElement.style.cursor = hovered ? 'pointer' : 'grab';
+  }
+  const tag = document.getElementById('hover-tag');
+  if (hovered) {
+    const sys = SYSTEMS[hovered.userData.partKey];
+    tag.textContent = sys.name;
+    tag.style.left = e.clientX + 'px';
+    tag.style.top = e.clientY + 'px';
+    tag.classList.add('visible');
+  } else {
+    tag.classList.remove('visible');
+  }
+});
+renderer.domElement.addEventListener('pointerdown', () => { renderer.domElement.style.cursor = 'grabbing'; });
+renderer.domElement.addEventListener('pointerup', () => { renderer.domElement.style.cursor = hovered ? 'pointer' : 'grab'; });
+renderer.domElement.addEventListener('click', e => {
+  pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+  pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObjects(parts, true);
+  const grp = partFromIntersect(hits);
+  if (grp) selectSystem(grp.userData.partKey);
+  else deselect();
+});
+
+function selectSystem(key) {
+  const allPartsForKey = parts.filter(p => p.userData.partKey === key);
+  if (selected) clearHighlight(selected);
+  // highlight all parts of the same system
+  allPartsForKey.forEach(p => setHighlight(p, SYSTEMS[key].branded ? 0xc69a5a : 0xe8ebef));
+  selected = allPartsForKey[0] || null;
+
+  const sys = SYSTEMS[key];
+  const panel = document.getElementById('info-panel');
+
+  document.getElementById('info-label').innerHTML = sys.branded
+    ? `<span class="brand-badge">${sys.badge}</span>`
+    : `System · ${sys.code}`;
+  document.getElementById('info-title').textContent = sys.name;
+  document.getElementById('info-sub').textContent = sys.code + ' · AX-340 rev 02 · ' + sys.partCount + ' components';
+
+  const stockDot = document.querySelector('#stat-stock').previousElementSibling;
+  if (stockDot) stockDot.className = 'dot ' + (/stock/i.test(sys.stock) && !/order/i.test(sys.stock) ? 'ok' : 'warn');
+  document.getElementById('stat-stock').textContent = sys.stock;
+  document.getElementById('stat-lead').textContent = sys.lead;
+  document.getElementById('stat-parts').textContent = sys.partCount + ' parts';
+
+  document.getElementById('info-desc').textContent = sys.desc;
+
+  document.getElementById('sub-parts').innerHTML = sys.parts.map(p => `
+    <div class="sub-part-row">
+      <div class="sp-num">${String(p.num).padStart(2,'0')}</div>
+      <div class="sp-info">
+        <div class="sp-name">${p.name}</div>
+        <div class="sp-meta">${p.meta}</div>
+      </div>
+      <div class="sp-pressure">${p.pressure}</div>
+    </div>
+  `).join('');
+
+  document.getElementById('specs').innerHTML = sys.specs.map(s => `
+    <div class="spec-row">
+      <div class="k">${s[0]}</div>
+      <div class="v ${s[2] ? 'accent' : ''}">${s[1]}</div>
+    </div>
+  `).join('');
+
+  panel.classList.add('visible');
+
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'overview'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.style.display = p.dataset.pane === 'overview' ? '' : 'none');
+
+  document.querySelectorAll('.part-row').forEach(r => r.classList.toggle('selected', r.dataset.key === key));
+
+  if (isolateMode) applyIsolate();
+}
+
+function deselect() {
+  if (selected) {
+    parts.filter(p => p.userData.partKey === selected.userData.partKey).forEach(p => clearHighlight(p));
+  }
+  selected = null;
+  document.getElementById('info-panel').classList.remove('visible');
+  document.querySelectorAll('.part-row').forEach(r => r.classList.remove('selected'));
+  if (isolateMode) { isolateMode = false; applyIsolate(); }
+}
+
+document.getElementById('info-close').onclick = deselect;
+
+// ---- Explode ----
+let explodeAmount = 0, explodeTarget = 0;
+function setExplode(v) {
+  explodeTarget = Math.max(0, Math.min(1, v));
+  document.getElementById('explode-slider').value = explodeTarget * 100;
+  document.getElementById('explode-val').textContent = Math.round(explodeTarget * 100) + '%';
+  document.getElementById('btn-explode').classList.toggle('active', explodeTarget > 0.05);
+  document.getElementById('mode-label').textContent = explodeTarget > 0.05 ? 'Exploded' : 'Assembly';
+}
+
+document.getElementById('explode-slider').addEventListener('input', e => setExplode(e.target.value / 100));
+document.getElementById('btn-explode').onclick = () => setExplode(explodeTarget > 0.05 ? 0 : 0.7);
+
+let camAnimating = false, camStart = 0;
+let camFrom = new THREE.Vector3(), camTo = new THREE.Vector3();
+let camTargetFrom = new THREE.Vector3(), camTargetTo = new THREE.Vector3();
+const CAM_DUR = 800;
+
+document.getElementById('btn-reset').onclick = () => {
+  setExplode(0); deselect();
+  camStart = performance.now();
+  camFrom = camera.position.clone(); camTargetFrom = controls.target.clone();
+  camTo = new THREE.Vector3(6, 4, 7); camTargetTo = new THREE.Vector3(0, 0.9, 0);
+  camAnimating = true;
+};
+
+document.getElementById('btn-isolate').onclick = () => {
+  isolateMode = !isolateMode;
+  applyIsolate();
+};
+
+function applyIsolate() {
+  parts.forEach(p => {
+    const keep = !isolateMode || !selected || p.userData.partKey === selected.userData.partKey;
+    p.traverse(o => {
+      if (o.isMesh) {
+        o.material.transparent = !keep;
+        o.material.opacity = keep ? 1 : 0.06;
+        o.material.depthWrite = keep;
+      }
+    });
+  });
+}
+
+// ---- Labels ----
+let labelsOn = false;
+const labelData = [
+  { key: 'engine', offset: new THREE.Vector3(1.8, 0.6, 0) },
+  { key: 'aftertreatment', offset: new THREE.Vector3(0, 1.0, 0) },
+  { key: 'cooling', offset: new THREE.Vector3(0, 0.5, 1.5) },
+  { key: 'hydraulic', offset: new THREE.Vector3(0, 0.2, 0) },
+  { key: 'hvac', offset: new THREE.Vector3(-0.5, 1.8, 0.5) },
+];
+const labelEls = {};
+labelData.forEach(l => {
+  const el = document.createElement('div');
+  el.className = 'part-label';
+  el.textContent = SYSTEMS[l.key].name;
+  el.style.display = 'none';
+  document.body.appendChild(el);
+  labelEls[l.key] = el;
+});
+document.getElementById('btn-labels').onclick = () => {
+  labelsOn = !labelsOn;
+  document.getElementById('btn-labels').classList.toggle('active', labelsOn);
+  Object.values(labelEls).forEach(el => el.style.display = labelsOn ? 'block' : 'none');
+};
+
+// ---- Callouts for branded systems ----
+let pinsOn = false;
+const brandedKeys = Object.keys(SYSTEMS).filter(k => SYSTEMS[k].branded);
+const pinEls = {};
+brandedKeys.forEach((k, i) => {
+  const pin = document.createElement('div');
+  pin.className = 'callout';
+  pin.innerHTML = `
+    <div class="card">
+      <div class="num">${String(i + 1).padStart(2, '0')}</div>
+      <div class="text">
+        <span class="kicker">Axis/One Original</span>
+        <span class="cname">${SYSTEMS[k].name}</span>
+      </div>
+    </div>
+    <div class="line"></div>
+    <div class="tip"></div>
+  `;
+  document.body.appendChild(pin);
+  pinEls[k] = pin;
+});
+
+// ---- Parts list UI ----
+const uniqueKeys = [...new Set(parts.map(p => p.userData.partKey))];
+const listEl = document.getElementById('parts-list');
+uniqueKeys.forEach((k, i) => {
+  const sys = SYSTEMS[k];
+  const row = document.createElement('div');
+  row.className = 'part-row' + (sys.branded ? ' branded' : '');
+  row.dataset.key = k;
+  row.innerHTML = `
+    <span class="idx">${String(i + 1).padStart(2, '0')}</span>
+    <span class="name">${sys.name}</span>
+    <span class="count-badge">${sys.partCount}</span>
+  `;
+  row.onclick = () => selectSystem(k);
+  listEl.appendChild(row);
+});
+
+// ---- Tab switching ----
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const target = tab.dataset.tab;
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));
+    document.querySelectorAll('.tab-pane').forEach(p => p.style.display = p.dataset.pane === target ? '' : 'none');
+  });
+});
+
+// ---- Keyboard ----
+window.addEventListener('keydown', e => {
+  if (e.key === 'e' || e.key === 'E') document.getElementById('btn-explode').click();
+  if (e.key === 'r' || e.key === 'R') document.getElementById('btn-reset').click();
+  if (e.key === 'Escape') deselect();
+});
+
+// ---- Render loop ----
+function easeInOutCubic(t) { return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2; }
+let fps = 0, fpsFrames = 0, fpsLast = performance.now();
+
+function animate() {
+  requestAnimationFrame(animate);
+
+  explodeAmount += (explodeTarget - explodeAmount) * 0.12;
+  parts.forEach(p => {
+    p.position.copy(p.userData.homePos).add(p.userData.explodeDir.clone().multiplyScalar(explodeAmount));
+  });
+
+  brandedKeys.forEach(k => {
+    const grp = parts.find(p => p.userData.partKey === k);
+    const el = pinEls[k];
+    if (!grp || !el) return;
+    const wp = new THREE.Vector3();
+    grp.getWorldPosition(wp); wp.y += 1.0;
+    const proj = wp.clone().project(camera);
+    el.style.left = ((proj.x * 0.5 + 0.5) * window.innerWidth) + 'px';
+    el.style.top = ((-proj.y * 0.5 + 0.5) * window.innerHeight) + 'px';
+    el.classList.toggle('on', proj.z < 1 && pinsOn);
+  });
+
+  if (labelsOn) {
+    labelData.forEach(l => {
+      const grp = parts.find(p => p.userData.partKey === l.key);
+      if (!grp) return;
+      const wp = new THREE.Vector3();
+      grp.getWorldPosition(wp); wp.add(l.offset);
+      const proj = wp.clone().project(camera);
+      const el = labelEls[l.key];
+      el.style.left = ((proj.x * 0.5 + 0.5) * window.innerWidth) + 'px';
+      el.style.top = ((-proj.y * 0.5 + 0.5) * window.innerHeight) + 'px';
+      el.style.opacity = proj.z < 1 ? 1 : 0;
+    });
+  }
+
+  if (camAnimating) {
+    const t = Math.min(1, (performance.now() - camStart) / CAM_DUR);
+    const k = easeInOutCubic(t);
+    camera.position.lerpVectors(camFrom, camTo, k);
+    controls.target.lerpVectors(camTargetFrom, camTargetTo, k);
+    if (t >= 1) camAnimating = false;
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+
+  fpsFrames++;
+  const now = performance.now();
+  if (now - fpsLast > 500) {
+    fps = Math.round(fpsFrames * 1000 / (now - fpsLast));
+    document.getElementById('fps-chip').textContent = fps + ' fps';
+    fpsFrames = 0; fpsLast = now;
+  }
+}
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ---- Boot ----
+let loadPct = 0;
+const loadInt = setInterval(() => {
+  loadPct = Math.min(100, loadPct + 8 + Math.random() * 12);
+  document.getElementById('load-pct').textContent = Math.round(loadPct) + '%';
+  if (loadPct >= 100) {
+    clearInterval(loadInt);
+    setTimeout(() => document.getElementById('loader').classList.add('done'), 200);
+  }
+}, 80);
+
+animate();
+
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.3;
+controls.addEventListener('start', () => controls.autoRotate = false);
+
+// Auto-showcase: explode + brand pins + open Engine system
+setTimeout(() => {
+  setExplode(1);
+  setTimeout(() => {
+    pinsOn = true;
+    selectSystem('engine');
+  }, 1500);
+}, 1800);
+</script>
+
+</body>
+</html>

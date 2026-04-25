@@ -481,6 +481,11 @@ controls.target.set(0,0.9,0);
 controls.autoRotate=true; controls.autoRotateSpeed=0.35;
 controls.addEventListener('start',()=>controls.autoRotate=false);
 
+// ─── Real model overlay ──────────────────────────────────────────────────────
+let tractorMesh = null;
+let tractorMeshes = [];   // cached mesh list for per-frame opacity updates
+let proceduralMeshes = []; // cached procedural mesh list
+
 // ─── Tractor geometry helpers ────────────────────────────────────────────────
 const parts = [];
 const tractor = new THREE.Group();
@@ -786,6 +791,82 @@ reg(cabG,'hvac',new THREE.Vector3(-0.6,1.9,0));
 
 tractor.position.y=0.02;
 
+// ─── Hide procedural geometry — used for raycasting + explode only ───────────
+tractor.traverse(o => {
+  if(!o.isMesh) return;
+  proceduralMeshes.push(o);
+  // colorWrite=false makes mesh invisible but THREE.js still raycasts it
+  o.material.colorWrite = false;
+  o.material.depthWrite = false;
+});
+
+// ─── Load real tractor GLB ───────────────────────────────────────────────────
+const gltfLoader = new GLTFLoader();
+let glbReady = false;
+
+gltfLoader.load('./tractor.glb', gltf => {
+  tractorMesh = gltf.scene;
+
+  // GLB bounding box BEFORE transforms
+  const bb0 = new THREE.Box3().setFromObject(tractorMesh);
+  const sz0 = bb0.getSize(new THREE.Vector3());
+
+  // Scale so the long axis (Z=15.49) fits ~3.5 units
+  const sc = 3.5 / sz0.z;
+  tractorMesh.scale.setScalar(sc);
+
+  // Rotate so tractor faces +X (matches procedural layout)
+  // GLB faces +Z (Blender default); rotate +90° around Y maps -Z→+X (front)
+  tractorMesh.rotation.y = Math.PI / 2;
+
+  // Compute world BB after scale+rotation, then center bottom at y=0
+  tractorMesh.updateMatrixWorld(true);
+  const bbW = new THREE.Box3().setFromObject(tractorMesh);
+  const ctrW = bbW.getCenter(new THREE.Vector3());
+  tractorMesh.position.set(-ctrW.x, -bbW.min.y, -ctrW.z);
+
+  // Enhance for PBR lighting — keep textures, fix material params
+  tractorMesh.traverse(o => {
+    if(!o.isMesh) return;
+    o.castShadow = true;
+    o.receiveShadow = true;
+    if(o.material && !Array.isArray(o.material)){
+      if(o.material.isMeshStandardMaterial){
+        o.material.roughness  = Math.max(0.3, Math.min(0.75, o.material.roughness || 0.7));
+        o.material.metalness  = Math.max(0.1, o.material.metalness || 0.1);
+        o.material.envMapIntensity = 0.8;
+      }
+      o.material.needsUpdate = true;
+    }
+    tractorMeshes.push(o);
+  });
+
+  scene.add(tractorMesh);
+  glbReady = true;
+
+}, undefined, err => {
+  // GLB failed — reveal procedural geometry as fallback
+  console.warn('GLB load failed, using procedural model:', err);
+  proceduralMeshes.forEach(o => {
+    o.material.colorWrite = true;
+    o.material.depthWrite = true;
+  });
+  glbReady = true;
+});
+
+// ─── Zone BoxHelpers — visible wireframe bounds for hover/select ─────────────
+// THREE.BoxHelper auto-tracks its target object's bounding box each frame
+parts.forEach(p => {
+  const s = SYSTEMS[p.userData.partKey];
+  const helper = new THREE.BoxHelper(p, s.color);
+  helper.material.transparent = true;
+  helper.material.opacity = 0;
+  helper.material.depthWrite = false;
+  helper.visible = false;
+  scene.add(helper);
+  p.userData.boxHelper = helper;
+});
+
 // ─── Camera view targets ─────────────────────────────────────────────────────
 const CAM_VIEWS = {
   engine:         {p:[3.5,2.5,4.5],t:[0.8,1.3,0]},
@@ -813,6 +894,19 @@ function flyTo(key){
 const emStore = new Map();
 
 function setEmit(grp,hex,intensity){
+  // Drive the BoxHelper wireframe (primary visual indicator)
+  const helper=grp.userData.boxHelper;
+  if(helper){
+    if(hex===null){
+      helper.visible=false;
+      helper.material.opacity=0;
+    } else {
+      helper.material.color.setHex(hex);
+      helper.material.opacity=Math.min(0.95,intensity*1.8);
+      helper.visible=true;
+    }
+  }
+  // Also drive emissive on any procedural mesh that has it (bonus glow via bloom)
   grp.traverse(o=>{
     if(!o.isMesh||!o.material.emissive) return;
     if(!emStore.has(o)){
@@ -852,15 +946,36 @@ function deselect(){
 }
 
 function applyIsolate(){
-  parts.forEach(p=>{
-    const keep=!isolateMode||!selected||p.userData.partKey===selected;
-    p.traverse(o=>{
-      if(!o.isMesh) return;
-      o.material.transparent=!keep;
-      o.material.opacity=keep?1:0.055;
-      o.material.depthWrite=keep;
+  if(tractorMeshes.length){
+    // Real model: fade to ghost in isolate mode, selected zone procedural becomes visible
+    const isol=isolateMode&&!!selected;
+    tractorMeshes.forEach(o=>{
+      o.material.transparent=isol;
+      o.material.opacity=isol?0.1:1-explAmt*0.84;
+      o.material.depthWrite=!isol;
     });
-  });
+    parts.forEach(p=>{
+      const isSel=isolateMode&&selected&&p.userData.partKey===selected;
+      p.traverse(o=>{
+        if(!o.isMesh) return;
+        // In isolate: show selected zone as solid procedural geometry
+        o.material.colorWrite=isSel||(explAmt>0.05);
+        o.material.depthWrite=isSel||(explAmt>0.05);
+        if(isSel){ o.material.transparent=false; o.material.opacity=1; }
+      });
+    });
+  } else {
+    // Fallback: procedural-only mode
+    parts.forEach(p=>{
+      const keep=!isolateMode||!selected||p.userData.partKey===selected;
+      p.traverse(o=>{
+        if(!o.isMesh) return;
+        o.material.transparent=!keep;
+        o.material.opacity=keep?1:0.055;
+        o.material.depthWrite=keep;
+      });
+    });
+  }
 }
 
 // ─── Info panel rendering ────────────────────────────────────────────────────
@@ -924,6 +1039,22 @@ const ray=new THREE.Raycaster(), ptr=new THREE.Vector2();
 function getPart(e){
   ptr.x=(e.clientX/W())*2-1; ptr.y=-(e.clientY/H())*2+1;
   ray.setFromCamera(ptr,camera);
+
+  // Primary: hit real model → map to nearest zone center
+  if(tractorMesh && explAmt < 0.25){
+    const realHits=ray.intersectObject(tractorMesh,true);
+    if(realHits.length>0){
+      const hp=realHits[0].point;
+      let nearest=null, nearDist=Infinity;
+      parts.forEach(p=>{
+        const d=hp.distanceTo(p.userData.homePos);
+        if(d<nearDist){ nearDist=d; nearest=p; }
+      });
+      return nearest;
+    }
+  }
+
+  // Fallback: procedural zone hit (works during explode + if GLB absent)
   const hits=ray.intersectObjects(parts,true);
   for(const h of hits){let o=h.object; while(o){if(o.userData.partKey)return o;o=o.parent;} }
   return null;
@@ -1028,6 +1159,29 @@ function animate(){
     );
   });
 
+  // GLB fades out as explode reveals procedural zones
+  if(tractorMeshes.length){
+    const tgtOp=1-explAmt*0.84;
+    const needsT=tgtOp<0.99;
+    tractorMeshes.forEach(o=>{
+      if(Math.abs((o.material.opacity||1)-tgtOp)>0.005){
+        o.material.transparent=needsT;
+        o.material.opacity=tgtOp;
+        o.material.depthWrite=!needsT;
+      }
+    });
+  }
+  // Show procedural geometry (with color) during explode
+  if(proceduralMeshes.length){
+    const showProc=explAmt>0.05;
+    proceduralMeshes.forEach(o=>{
+      if(o.material.colorWrite!==showProc){
+        o.material.colorWrite=showProc;
+        o.material.depthWrite=showProc;
+      }
+    });
+  }
+
   // floor pulse rings
   ringPool.forEach(r=>{
     r.userData.phase+=0.006;
@@ -1041,6 +1195,10 @@ function animate(){
   if(selected){
     const pulse=0.42+Math.sin(pulseT*3.5)*0.14;
     parts.filter(p=>p.userData.partKey===selected).forEach(p=>{
+      // Pulse the BoxHelper opacity for futuristic "scanning" look
+      if(p.userData.boxHelper){
+        p.userData.boxHelper.material.opacity=pulse*0.9;
+      }
       p.traverse(o=>{
         if(o.isMesh&&o.material.emissive&&o.material.emissiveIntensity>0){
           o.material.emissiveIntensity=pulse;

@@ -542,250 +542,316 @@ function halfcyl(r,h,m,px=0,py=0,pz=0,rx=0,ry=0){
 function add(grp,...children){ children.forEach(c=>grp.add(c)); return grp; }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  ENGINE SYSTEM — hood, chassis, grille, headlights, air filter
+//  ENGINE SYSTEM — chassis, hood, axles, fenders, grille
 // ═══════════════════════════════════════════════════════════════════════════
 const engG = new THREE.Group();
 
-// Main chassis rail (longer, lower)
+// ── Chassis C-section rails ──────────────────────────────────────────────
 add(engG,
-  box(3.4, 0.28, 0.72, DARK_METAL, 0, 0.68, 0),     // main beam
-  box(3.4, 0.1,  0.5,  DARK_METAL, 0, 0.5,  0),     // belly plate
-  // crossmember front
-  box(0.18, 0.22, 1.1, DARK_METAL, 1.4, 0.6, 0),
-  // crossmember rear
-  box(0.22, 0.3,  1.3, DARK_METAL,-1.0, 0.7, 0)
+  box(3.6, 0.20, 0.60, DARK_METAL,  0.04, 0.72,  0),    // top flange
+  box(3.6, 0.06, 0.02, DARK_METAL,  0.04, 0.60,  0.30), // outer web L
+  box(3.6, 0.06, 0.02, DARK_METAL,  0.04, 0.60, -0.30), // outer web R
+  box(3.6, 0.06, 0.60, DARK_METAL,  0.04, 0.50,  0),    // belly plate
+  box(0.20, 0.22, 1.12, DARK_METAL, 1.52, 0.63,  0),    // front crossmember
+  box(0.18, 0.30, 1.44, DARK_METAL,-0.92, 0.70,  0)     // rear crossmember
 );
 
-// Hood — tapered (wider at base, narrower at top), rounded feel via layered boxes
-const hoodBase   = box(1.8,  0.8,  1.08, PAINT,      0.72, 1.16, 0);
-const hoodTop    = box(1.75, 0.12, 1.0,  PAINT,      0.72, 1.60, 0);
-const hoodBevel  = box(1.75, 0.22, 1.04, PAINT_D,    0.72, 1.49, 0);
-const hoodFront  = box(0.1,  0.78, 1.06, PAINT_D,    1.62, 1.16, 0); // front face panel
-
-// Grille opening inset
-const grille = box(0.06, 0.52, 0.88, mat(0x0c1014,0.8,0.3), 1.66, 1.10, 0);
-// Grille slats
-for(let i=0;i<6;i++) add(engG, box(0.025,0.04,0.82,CHROME, 1.68, 0.87+i*0.09, 0));
-// Logo bar
-add(engG, box(0.025, 0.06, 0.35, mat(0xc8943a,0.2,0.7), 1.68, 1.42, 0));
-
-// Headlights
-for(const z of[-0.4,0.4]){
-  const hl = cyl(0.1,0.1,0.09,22,HEAD_M, 1.67,1.36,z, 0,Math.PI/2);
-  const hlrim = cyl(0.12,0.12,0.03,22,CHROME, 1.67,1.36,z, 0,Math.PI/2);
-  add(engG,hl,hlrim);
-}
-
-// Air filter (right side of hood)
-const airfilt = cyl(0.12,0.12,0.32,18,mat(0x1e2428,0.5,0.4), 0.6,1.75,-0.56, 0,0);
-const airfiltcap = cyl(0.14,0.14,0.04,18,CHROME, 0.6,1.93,-0.56);
-add(engG, airfilt, airfiltcap);
-
-// Front axle bridge + spindles
+// ── Rear differential housing (the iconic cast-iron dome) ────────────────
 add(engG,
-  box(0.26, 0.18, 1.22, DARK_METAL, 1.4, 0.38, 0),  // axle beam
-  box(0.14, 0.1,  0.14, DARK_METAL, 1.4, 0.44, 0.62),
-  box(0.14, 0.1,  0.14, DARK_METAL, 1.4, 0.44,-0.62)
+  box(0.62, 0.74, 1.56, DARK_METAL,-1.06, 0.82,  0),    // axle housing box
+  cyl(0.46, 0.46, 0.90, 28, DARK_METAL,-1.06,0.90, 0, Math.PI/2), // diff dome
+  cyl(0.13, 0.13, 0.36, 12, DARK_METAL,-1.06,0.90, 0.90, Math.PI/2), // axle tube L
+  cyl(0.13, 0.13, 0.36, 12, DARK_METAL,-1.06,0.90,-0.90, Math.PI/2), // axle tube R
+  cyl(0.24, 0.24, 0.14, 16, DARK_METAL,-1.06,0.90, 0, Math.PI/2)    // center hub ring
 );
 
-// Rear axle casing (large bulge — differential housing)
-const rearAxle = box(0.72, 0.68, 1.42, DARK_METAL,-1.02, 0.82, 0);
-const diffDome = cyl(0.36,0.36,0.72,20,DARK_METAL,-1.02,0.92,0, Math.PI/2);
-add(engG, rearAxle, diffDome);
-
-// Front fenders
-for(const z of[-0.62,0.62]){
-  const fy = halfcyl(0.42,0.12,PAINT, 1.4,0.62,z, Math.PI/2,0);
-  add(engG,fy);
+// ── Rear fenders (large sweeping arches — most visible from the side) ─────
+for(const z of [-0.90, 0.90]){
+  add(engG,
+    halfcyl(0.82, 0.24, PAINT,  -1.06, 0.80, z, Math.PI/2, 0),  // outer arch
+    halfcyl(0.80, 0.14, PAINT_D,-1.06, 0.80, z, Math.PI/2, 0),  // inner liner
+    box(0.62, 0.14, 0.20, PAINT_D, -1.06, 0.16, z)              // bottom skirt
+  );
 }
 
-// Rear fenders (large arched)
-for(const z of[-0.8,0.8]){
-  const fen = halfcyl(0.74,0.18,PAINT,-1.0,0.78,z, Math.PI/2,0);
-  const fenInner = halfcyl(0.72,0.1,PAINT_D,-1.0,0.78,z, Math.PI/2,0);
-  add(engG,fen,fenInner);
+// ── Hood — 3-layer tapered nose with side panels and vents ───────────────
+add(engG,
+  box(2.06, 0.90, 1.06, PAINT,   0.66, 1.22, 0),  // lower body
+  box(2.02, 0.22, 1.02, PAINT_D, 0.66, 1.67, 0),  // beltline crease
+  box(1.90, 0.22, 0.98, PAINT,   0.66, 1.88, 0),  // upper body
+  box(1.80, 0.08, 0.94, PAINT_D, 0.66, 1.99, 0),  // top cap
+  box(0.08, 0.92, 1.04, PAINT_D, 1.70, 1.22, 0)   // front face
+);
+// Hood side panels + vent slots (5 per side)
+for(const z of [-0.535, 0.535]){
+  add(engG, box(1.92, 0.88, 0.030, PAINT_D, 0.66, 1.22, z));
+  for(let v=0;v<5;v++) add(engG, box(0.20,0.040,0.028,mat(0x080c0f,0.85,0.1), 0.04+v*0.33, 1.40, z));
 }
 
-add(engG, hoodBase, hoodTop, hoodBevel, hoodFront, grille);
+// ── Grille — deep inset with 8 horizontal slats + 3 vertical dividers ─────
+add(engG, box(0.04, 0.68, 0.94, mat(0x060a0d,0.9,0.2), 1.73, 1.18, 0));
+for(let i=0;i<8;i++) add(engG, box(0.035,0.040,0.88, CHROME, 1.755, 0.86+i*0.10, 0));
+for(let i=0;i<3;i++) add(engG, box(0.035,0.64,0.036, CHROME, 1.755, 1.18,-0.28+i*0.28));
+add(engG, box(0.035, 0.072, 0.40, mat(0xc8943a,0.12,0.80), 1.755, 1.52, 0)); // brand bar
+
+// ── Headlights (larger round with chrome bezels) ──────────────────────────
+for(const z of [-0.42, 0.42]){
+  add(engG,
+    cyl(0.115,0.115,0.10,24,HEAD_M, 1.73,1.42,z, 0,Math.PI/2),
+    cyl(0.135,0.135,0.040,24,CHROME, 1.73,1.42,z, 0,Math.PI/2),
+    cyl(0.140,0.140,0.025,24,mat(0x161616,0.6,0), 1.715,1.42,z, 0,Math.PI/2)
+  );
+}
+
+// ── Air cleaner (tall pre-cleaner stack, right rear of hood) ─────────────
+add(engG,
+  cyl(0.130,0.130,0.44,20,mat(0x1c2428,0.5,0.35), 0.52,1.86,-0.54),
+  cyl(0.155,0.155,0.048,20,CHROME,                 0.52,2.09,-0.54),
+  cyl(0.090,0.130,0.14,20,mat(0x1c2428,0.5,0.35), 0.52,1.61,-0.54),
+  cyl(0.055,0.055,0.20,10,DARK_METAL,              0.52,1.48,-0.54)
+);
+
+// ── Front axle — centre beam + kingpin spindles + tie rod ─────────────────
+add(engG,
+  box(0.22, 0.16, 1.20, DARK_METAL, 1.52, 0.36,  0),
+  cyl(0.060,0.060,0.26,8,DARK_METAL, 1.52,0.28, 0.58, 0.32, 0),
+  cyl(0.060,0.060,0.26,8,DARK_METAL, 1.52,0.28,-0.58,-0.32, 0),
+  box(0.18, 0.08, 0.16, DARK_METAL, 1.52,0.42,  0.60),
+  box(0.18, 0.08, 0.16, DARK_METAL, 1.52,0.42, -0.60),
+  cyl(0.035,0.035,0.48,8,DARK_METAL, 1.52,0.36, 0, 0,Math.PI/2)
+);
+
+// ── Front fenders (small, tight — matches smaller front wheel) ────────────
+for(const z of [-0.52, 0.52]){
+  add(engG,
+    halfcyl(0.35, 0.09, PAINT,  1.52, 0.33, z, Math.PI/2, 0),
+    halfcyl(0.34, 0.06, PAINT_D,1.52, 0.33, z, Math.PI/2, 0)
+  );
+}
+
 reg(engG,'engine', new THREE.Vector3(0.3,0.6,0));
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  AFTERTREATMENT — engine block detail + exhaust stack
+//  AFTERTREATMENT — engine block, valve train, turbo
 // ═══════════════════════════════════════════════════════════════════════════
 const aftG = new THREE.Group();
 
-// Engine block (under hood, visible when exploded)
-add(aftG, box(1.05,0.62,0.78,ENGINE_M, 0,0,0));
-// Valve cover (ribbed top)
-add(aftG, box(0.95,0.1,0.72,mat(0x1e2c38,0.38,0.65), 0,0.36,0));
-for(let i=0;i<4;i++) add(aftG, box(0.93,0.04,0.06,CHROME, 0,0.42,-0.27+i*0.18));
-// Cylinder heads (3 visible)
-for(let i=0;i<3;i++){
-  const cy2 = cyl(0.155,0.155,0.24,16,CHROME, -0.34+i*0.34,0.44,0);
-  for(let j=0;j<4;j++) add(aftG, new THREE.Mesh(new THREE.TorusGeometry(0.17,0.012,6,16), CHROME).position&&null||
-    (()=>{const t=new THREE.Mesh(new THREE.TorusGeometry(0.17,0.012,6,16),CHROME);t.rotation.x=Math.PI/2;t.position.set(-0.34+i*0.34,0.38+j*0.055,0);return t})()
-  );
-  add(aftG,cy2);
+add(aftG, box(1.10,0.64,0.82,ENGINE_M, 0,0,0));             // block
+add(aftG, box(1.00,0.10,0.76,mat(0x1e2c38,0.38,0.65), 0,0.37,0)); // valve cover
+for(let i=0;i<5;i++) add(aftG, box(0.98,0.040,0.060,CHROME, 0,0.43,-0.30+i*0.15));
+for(let i=0;i<4;i++){
+  add(aftG, cyl(0.15,0.15,0.22,16,CHROME, -0.44+i*0.29,0.46,0));
+  for(let j=0;j<4;j++){
+    const tr=new THREE.Mesh(new THREE.TorusGeometry(0.17,0.011,6,16),CHROME);
+    tr.rotation.x=Math.PI/2; tr.position.set(-0.44+i*0.29,0.39+j*0.050,0);
+    aftG.add(tr);
+  }
 }
-// Turbo
-const turbo = new THREE.Group();
-add(turbo, cyl(0.12,0.12,0.1,16,mat(0x2a3a44,0.35,0.8)));
-add(turbo, cyl(0.18,0.18,0.06,16,mat(0x1e2c38,0.4,0.7), 0,-0.08,0));
-add(turbo, box(0.25,0.08,0.18,DARK_METAL, 0,-0.12,0));
-turbo.position.set(0.56,0.1,0.42);
-add(aftG,turbo);
-aftG.position.set(0.78,1.21,0);
+// Turbocharger
+const turbo=new THREE.Group();
+add(turbo,
+  cyl(0.13,0.13,0.10,16,mat(0x2a3a44,0.32,0.82)),
+  cyl(0.20,0.20,0.06,16,mat(0x1e2c38,0.38,0.70), 0,-0.09,0),
+  box(0.26,0.09,0.20,DARK_METAL, 0,-0.14,0)
+);
+turbo.position.set(0.56,0.12,0.44); add(aftG,turbo);
+aftG.position.set(0.74,1.22,0);
 reg(aftG,'aftertreatment', new THREE.Vector3(0,2.1,0));
 
-// Exhaust stack
+// Exhaust stack — L-bend at base then vertical chrome pipe
 const exhG = new THREE.Group();
 add(exhG,
-  cyl(0.065,0.065,1.15,16,CHROME, 0,0.575,0),   // pipe
-  cyl(0.1,0.065,0.05,16,CHROME, 0,1.14,0),       // rain cap top
-  cyl(0.09,0.09,0.04,16,DARK_METAL, 0,0.02,0),   // base flange
-  cyl(0.04,0.04,0.18,10,DARK_METAL, 0,0.11,0)    // lower elbow stub
+  cyl(0.064,0.064,0.24,16,CHROME, 0,0.12,0),       // lower elbow stub
+  box(0.13,0.13,0.18,DARK_METAL, -0.08,0.02,0),     // base flange box
+  cyl(0.064,0.064,1.20,16,CHROME, 0,0.82,0),        // main vertical pipe
+  cyl(0.10,0.064,0.055,16,CHROME, 0,1.44,0),        // rain cap
+  cyl(0.095,0.095,0.025,16,CHROME,0,1.41,0),        // cap rim
+  box(0.17,1.06,0.13,mat(0x181c20,0.6,0.35), -0.13,0.77,0) // heat shield
 );
-// heat shield
-add(exhG, box(0.16,1.0,0.12,mat(0x1a1e22,0.6,0.4), -0.12,0.55,0));
-exhG.position.set(1.2,1.69,-0.42);
+exhG.position.set(1.18,1.70,-0.44);
 reg(exhG,'aftertreatment', new THREE.Vector3(0.4,2.5,-0.5));
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  COOLING & AIR — wheels + radiator + front intake
+//  COOLING & AIR — wheels (corrected proportions) + radiator
 // ═══════════════════════════════════════════════════════════════════════════
 function buildTire(big){
   const g = new THREE.Group();
-  const r = big?0.66:0.40, w = big?0.32:0.24;
-  // tire carcass
-  g.add(cyl(r,r,w,36,RUBBER, 0,0,0, Math.PI/2));
-  // R-1 tread lugs (staggered)
-  const nc = big?18:12;
+  // Real ratio: rear r=0.66, front r=0.32 (front ≈48% of rear — matches John Deere)
+  const r = big?0.66:0.32, w = big?0.36:0.16;
+  g.add(cyl(r,r,w,40,RUBBER, 0,0,0, Math.PI/2));
+  // R-1 tread lugs
+  const nc = big?20:10;
   for(let i=0;i<nc;i++){
     const a=(i/nc)*Math.PI*2;
-    const lug = box(0.07,0.1,w*0.78,RUBBER);
-    lug.position.set(Math.cos(a)*r, Math.sin(a)*r, 0);
+    const lug=box(0.075,big?0.11:0.06,w*0.80,RUBBER);
+    lug.position.set(Math.cos(a)*r,Math.sin(a)*r,0);
     lug.rotation.z=a+Math.PI/2; g.add(lug);
-    // alternating offset lugs
-    const a2=a+Math.PI/nc;
-    const lug2=box(0.05,0.08,w*0.5,RUBBER);
-    lug2.position.set(Math.cos(a2)*(r+0.005), Math.sin(a2)*(r+0.005), w*0.22*(i%2?1:-1));
-    lug2.rotation.z=a2+Math.PI/2; g.add(lug2);
+    if(big){
+      const a2=a+Math.PI/nc;
+      const lug2=box(0.055,0.085,w*0.55,RUBBER);
+      lug2.position.set(Math.cos(a2)*(r+0.005),Math.sin(a2)*(r+0.005),w*0.24*(i%2?1:-1));
+      lug2.rotation.z=a2+Math.PI/2; g.add(lug2);
+    }
   }
-  // hub casting
-  g.add(cyl(r*0.46,r*0.46,w*1.05,22,DARK_METAL, 0,0,0, Math.PI/2));
-  // spokes (6)
-  for(let i=0;i<6;i++){
-    const sa=(i/6)*Math.PI*2;
-    const spoke=box(r*0.38,0.06,w*0.9,mat(0x252d34,0.5,0.6));
-    spoke.rotation.x=Math.PI/2; spoke.rotation.y=0; spoke.rotation.z=sa;
-    spoke.position.set(Math.cos(sa)*r*0.24, Math.sin(sa)*r*0.24, 0);
-    g.add(spoke);
+  // Hub + spokes
+  g.add(cyl(r*0.44,r*0.44,w*1.06,24,DARK_METAL, 0,0,0, Math.PI/2));
+  const nSpoke=big?8:5;
+  for(let i=0;i<nSpoke;i++){
+    const sa=(i/nSpoke)*Math.PI*2;
+    const sp=box(r*0.42,big?0.060:0.048,w*0.92,mat(0x252d34,0.5,0.6));
+    sp.rotation.x=Math.PI/2; sp.rotation.z=sa;
+    sp.position.set(Math.cos(sa)*r*0.24,Math.sin(sa)*r*0.24,0);
+    g.add(sp);
   }
-  g.add(cyl(r*0.14,r*0.14,w*1.12,14,CHROME, 0,0,0, Math.PI/2));
-  // bolts
-  for(let i=0;i<8;i++){
-    const ba=(i/8)*Math.PI*2;
-    g.add(cyl(0.022,0.022,w*1.1,6,CHROME, Math.cos(ba)*r*0.3, Math.sin(ba)*r*0.3, 0, Math.PI/2));
+  g.add(cyl(r*0.13,r*0.13,w*1.14,14,CHROME, 0,0,0, Math.PI/2));
+  for(let i=0;i<(big?10:6);i++){
+    const ba=(i/(big?10:6))*Math.PI*2;
+    g.add(cyl(0.022,0.022,w*1.12,6,CHROME, Math.cos(ba)*r*0.30,Math.sin(ba)*r*0.30,0, Math.PI/2));
   }
   return g;
 }
 
-const wRL=buildTire(true);  wRL.position.set(-1.0,0.66,0.82);
-const wRR=buildTire(true);  wRR.position.set(-1.0,0.66,-0.82);
-const wFL=buildTire(false); wFL.position.set(1.4,0.40,0.65);
-const wFR=buildTire(false); wFR.position.set(1.4,0.40,-0.65);
-reg(wRL,'cooling',new THREE.Vector3(0,0,2.4));
-reg(wRR,'cooling',new THREE.Vector3(0,0,-2.4));
-reg(wFL,'cooling',new THREE.Vector3(0.9,0,1.9));
-reg(wFR,'cooling',new THREE.Vector3(0.9,0,-1.9));
+// Rear wheels: wide stance z=±0.92, front: narrow z=±0.52
+const wRL=buildTire(true);  wRL.position.set(-1.04,0.66, 0.92);
+const wRR=buildTire(true);  wRR.position.set(-1.04,0.66,-0.92);
+const wFL=buildTire(false); wFL.position.set( 1.52,0.32, 0.52);
+const wFR=buildTire(false); wFR.position.set( 1.52,0.32,-0.52);
+reg(wRL,'cooling',new THREE.Vector3(0,0, 2.5));
+reg(wRR,'cooling',new THREE.Vector3(0,0,-2.5));
+reg(wFL,'cooling',new THREE.Vector3(0.9,0, 1.8));
+reg(wFR,'cooling',new THREE.Vector3(0.9,0,-1.8));
 
-// Radiator stack behind grille
+// Radiator core — 12 fine fins
 const radG = new THREE.Group();
-add(radG, box(0.12,0.72,0.95,COOL_M, 0,0,0));
-for(let i=0;i<9;i++) add(radG, box(0.14,0.64,0.03,mat(0x1a3a5c,0.3,0.75), 0,0,-0.44+i*0.11));
-// overflow tank
-add(radG, cyl(0.06,0.06,0.24,12,mat(0x1a3a5c,0.45,0.5), 0.05,0.44,0.52));
-radG.position.set(1.7,1.1,0);
-reg(radG,'cooling',new THREE.Vector3(0.8,0.2,0));
+add(radG, box(0.11,0.76,1.00,COOL_M, 0,0,0));
+for(let i=0;i<12;i++) add(radG, box(0.13,0.70,0.025,mat(0x1a3a5c,0.28,0.78), 0,0,-0.50+i*0.092));
+add(radG, cyl(0.065,0.065,0.26,12,mat(0x1a3a5c,0.42,0.48), 0.06,0.46, 0.52)); // overflow
+add(radG, box(0.16,0.80,1.06,mat(0x0e141a,0.7,0.2), -0.14,0,0)); // backing plate
+radG.position.set(1.69,1.14,0);
+reg(radG,'cooling',new THREE.Vector3(0.9,0.2,0));
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  HYDRAULIC — underframe, pump, valve bank, 3-point hitch
+//  HYDRAULIC — pump, valve bank, 3-point hitch, PTO
 // ═══════════════════════════════════════════════════════════════════════════
 const hydG = new THREE.Group();
 add(hydG,
-  box(2.2,0.1,0.42,HYD_M, 0,0.32,0),      // lower frame rail
-  box(0.32,0.3,0.38,HYD_M,-0.5,0.52,-0.36), // pump body
-  box(0.32,0.3,0.38,HYD_M,-0.5,0.52, 0.36), // pump mirror
-  box(0.2,0.24,0.22,mat(0x0e1e14,0.5,0.6),0.1,0.52,-0.32),  // valve block
-  box(0.2,0.24,0.22,mat(0x0e1e14,0.5,0.6),0.1,0.52, 0.32)
+  box(2.2, 0.09, 0.44, HYD_M,  0,    0.34,  0),       // lower frame rail
+  box(0.34, 0.32, 0.40, HYD_M,-0.52, 0.54, -0.38),     // pump body L
+  box(0.34, 0.32, 0.40, HYD_M,-0.52, 0.54,  0.38),     // pump body R
+  box(0.22, 0.26, 0.24, mat(0x0a1a10,0.5,0.6), 0.08,0.54,-0.34),
+  box(0.22, 0.26, 0.24, mat(0x0a1a10,0.5,0.6), 0.08,0.54, 0.34)
 );
-// hose runs
-for(let i=0;i<5;i++){
-  add(hydG, cyl(0.025,0.025,0.42+i*0.06,8,mat(0x080f0c,0.9,0.1), -0.3+i*0.15,0.52,0.0));
+for(let i=0;i<6;i++) add(hydG, cyl(0.024,0.024,0.44+i*0.055,8,mat(0x080f0c,0.92,0.08), -0.28+i*0.14,0.54,0));
+
+// 3-pt hitch — long lower links angled 35° downward, visible from side
+for(const z of [-0.40, 0.40]){
+  const linkG = new THREE.Group();
+  add(linkG,
+    box(0.070,0.090,0.86,DARK_METAL, 0,0,0),  // lower link bar
+    cyl(0.042,0.042,0.10,8,DARK_METAL, 0,-0.44,0, 0,Math.PI/2) // ball end
+  );
+  linkG.rotation.z = -0.62;  // ~35° down
+  linkG.position.set(-1.50, 0.56, z);
+  hydG.add(linkG);
+  // Lift arm (rising from top of axle housing)
+  const liftG = new THREE.Group();
+  add(liftG, box(0.060,0.38,0.060,DARK_METAL, 0,0.19,0));
+  liftG.rotation.z = -0.30;
+  liftG.position.set(-1.06, 0.88, z);
+  hydG.add(liftG);
 }
-// 3-pt hitch lower links
-for(const z of[-0.38,0.38]){
-  const link=box(0.06,0.08,0.55,DARK_METAL,-1.48,0.42,z);
-  const liftarm=box(0.06,0.35,0.06,DARK_METAL,-1.48,0.55+0.17,z);
-  liftarm.rotation.z=0.22;
-  add(hydG,link,liftarm);
-}
-// top link
-add(hydG, box(0.05,0.06,0.36,DARK_METAL,-1.48,0.78,0));
+// Top link
+add(hydG, box(0.055,0.065,0.38,DARK_METAL,-1.50,0.82,0));
+// PTO shaft stub
+add(hydG,
+  cyl(0.052,0.052,0.22,12,CHROME,       -1.76,0.60,0, 0,Math.PI/2),
+  cyl(0.078,0.078,0.030,12,DARK_METAL,  -1.65,0.60,0, 0,Math.PI/2)
+);
 reg(hydG,'hydraulic',new THREE.Vector3(0,-1.0,0));
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  HVAC — operator station (cab, seat, ROPS, dash, steering)
+//  HVAC — cab, seat, ROPS, dash, fuel tank, steps
 // ═══════════════════════════════════════════════════════════════════════════
 const cabG = new THREE.Group();
 
-// Platform floor
-add(cabG, box(0.95,0.07,1.06,DARK_METAL,-0.28,1.0,0));
-// Footwell
-add(cabG, box(0.22,0.06,0.82,PLASTIC,  0.2, 1.0,0));
-
-// Seat (layered cushions)
+// ── Platform floor + footwell ─────────────────────────────────────────────
 add(cabG,
-  box(0.52,0.12,0.52,SEAT_M,-0.6,1.32,0),   // pan
-  box(0.12,0.52,0.52,SEAT_M,-0.76,1.58,0),  // back
-  box(0.54,0.05,0.16,SEAT_M,-0.6,1.28,-0.28), // pan front lip
-  cyl(0.04,0.04,0.28,8,DARK_METAL,-0.62,1.16, 0.26,0,0.15), // suspension post L
-  cyl(0.04,0.04,0.28,8,DARK_METAL,-0.62,1.16,-0.26,0,-0.15)  // suspension post R
+  box(1.00,0.070,1.10,DARK_METAL,-0.26,1.02,0),
+  box(0.24,0.055,0.86,PLASTIC,    0.22,1.02,0)
 );
 
-// Steering column + wheel
-const colMesh=cyl(0.038,0.038,0.82,12,PLASTIC, -0.08,1.52,0, 0,-0.3);
-const wheel2 = new THREE.Mesh(new THREE.TorusGeometry(0.185,0.022,8,32),PLASTIC);
-wheel2.position.set(0.05,1.85,0); wheel2.rotation.x=0.28; wheel2.rotation.y=Math.PI/2;
-const hub2 = cyl(0.05,0.05,0.04,12,PLASTIC, 0.05,1.85,0, 0,Math.PI/2);
-for(let i=0;i<3;i++){
-  const sp=box(0.012,0.185,0.018,PLASTIC,0.05,1.85,0);
-  sp.rotation.x=0.28; sp.rotation.y=Math.PI/2; sp.rotation.z=(i/3)*Math.PI*2;
-  add(cabG,sp);
+// ── Fuel tank (right side — between firewall and seat, very visible) ───────
+add(cabG,
+  box(0.66,0.50,0.30,mat(0x111416,0.82,0.05),  0.10,1.26,-0.48),  // tank body
+  box(0.64,0.08,0.28,mat(0x1a1e22,0.7,0.1),    0.10,1.52,-0.48),  // top cap
+  cyl(0.042,0.042,0.065,12,CHROME,              0.10,1.58,-0.46)   // filler cap
+);
+
+// ── Operator steps (3 rungs, right side) ──────────────────────────────────
+for(let s=0;s<3;s++){
+  add(cabG,
+    box(0.26,0.04,0.28,DARK_METAL, 0.38-s*0.14, 0.94-s*0.22,-0.62), // tread
+    box(0.04,0.22,0.28,DARK_METAL, 0.28-s*0.14, 0.83-s*0.22,-0.62)  // riser
+  );
 }
-add(cabG,colMesh,wheel2,hub2);
 
-// Dashboard
+// ── Seat (layered cushion + suspension) ──────────────────────────────────
 add(cabG,
-  box(0.32,0.2,0.44,PLASTIC, 0.06,1.56,0),
-  box(0.28,0.06,0.38,mat(0x0e1218,0.5,0.3), 0.07,1.67,0),  // gauge cluster
-  box(0.06,0.06,0.06,mat(0xffe9b0,0.2,0,0xffb040), 0.22,1.72,-0.14), // warning lamp
-  box(0.06,0.06,0.06,mat(0xffe9b0,0.2,0,0xffb040), 0.22,1.72, 0.14)
+  box(0.54,0.12,0.54,SEAT_M,-0.62,1.34,0),
+  box(0.12,0.54,0.54,SEAT_M,-0.78,1.60,0),
+  box(0.56,0.050,0.16,SEAT_M,-0.62,1.29,-0.28),
+  cyl(0.040,0.040,0.30,8,DARK_METAL,-0.64,1.18, 0.27,0, 0.14),
+  cyl(0.040,0.040,0.30,8,DARK_METAL,-0.64,1.18,-0.27,0,-0.14)
 );
 
-// ROPS frame
-const ropsVL=box(0.06,1.2,0.06,DARK_METAL,-0.95,1.72,-0.5);
-const ropsVR=box(0.06,1.2,0.06,DARK_METAL,-0.95,1.72, 0.5);
-const ropsT =box(0.06,0.06,1.06,DARK_METAL,-0.95,2.35, 0);
-// diagonal bracing
-const bd1=box(0.04,0.04,0.6,DARK_METAL,-0.95,2.1,-0.25); bd1.rotation.z=0.4;
-const bd2=box(0.04,0.04,0.6,DARK_METAL,-0.95,2.1, 0.25); bd2.rotation.z=0.4;
-add(cabG,ropsVL,ropsVR,ropsT,bd1,bd2);
+// ── Steering column + wheel ────────────────────────────────────────────────
+add(cabG, cyl(0.036,0.036,0.84,12,PLASTIC,-0.08,1.54,0, 0,-0.30));
+const swheel=new THREE.Mesh(new THREE.TorusGeometry(0.190,0.022,8,36),PLASTIC);
+swheel.position.set(0.05,1.88,0); swheel.rotation.x=0.28; swheel.rotation.y=Math.PI/2;
+add(cabG, swheel, cyl(0.050,0.050,0.042,12,PLASTIC, 0.05,1.88,0, 0,Math.PI/2));
+for(let i=0;i<3;i++){
+  const sp=box(0.012,0.190,0.018,PLASTIC,0.05,1.88,0);
+  sp.rotation.x=0.28; sp.rotation.y=Math.PI/2; sp.rotation.z=(i/3)*Math.PI*2;
+  cabG.add(sp);
+}
 
-// AC condenser slab (shows HVAC system)
-const acCond=box(0.06,0.38,0.52,HVAC_M,-0.55,1.45,0.55);
-const acPipe=cyl(0.03,0.03,0.22,8,HVAC_M,-0.55,1.38,0.42, 0,0);
-add(cabG,acCond,acPipe);
+// ── Dashboard + gauges ────────────────────────────────────────────────────
+add(cabG,
+  box(0.34,0.22,0.46,PLASTIC,  0.06,1.58,0),
+  box(0.30,0.065,0.40,mat(0x0c1016,0.5,0.28), 0.07,1.70,0),
+  box(0.065,0.065,0.065,mat(0xffe9b0,0.2,0,0xffb040), 0.23,1.75,-0.14),
+  box(0.065,0.065,0.065,mat(0xffe9b0,0.2,0,0xffb040), 0.23,1.75, 0.14)
+);
+
+// ── ROPS — 4-post with canopy frame + safety handrails ───────────────────
+// front posts
+add(cabG,
+  box(0.055,1.10,0.055,DARK_METAL, 0.02,1.72,-0.50),
+  box(0.055,1.10,0.055,DARK_METAL, 0.02,1.72, 0.50)
+);
+// rear posts
+add(cabG,
+  box(0.055,1.20,0.055,DARK_METAL,-0.96,1.72,-0.50),
+  box(0.055,1.20,0.055,DARK_METAL,-0.96,1.72, 0.50)
+);
+// canopy frame
+add(cabG,
+  box(0.055,0.055,1.06,DARK_METAL,-0.96,2.37,0),  // rear top bar
+  box(0.055,0.055,1.06,DARK_METAL, 0.02,2.27,0),  // front top bar
+  box(1.00,0.055,0.055,DARK_METAL,-0.47,2.37,-0.50), // side rail L
+  box(1.00,0.055,0.055,DARK_METAL,-0.47,2.37, 0.50)  // side rail R
+);
+// handrail (right side, access from steps)
+add(cabG,
+  cyl(0.022,0.022,0.62,8,CHROME, 0.24,1.50,-0.56, 0.60),
+  cyl(0.022,0.022,0.62,8,CHROME, 0.04,1.50,-0.56, 0.60)
+);
+
+// ── AC condenser (HVAC zone marker) ───────────────────────────────────────
+add(cabG,
+  box(0.060,0.42,0.54,HVAC_M,-0.56,1.48,0.58),
+  cyl(0.032,0.032,0.24,8,HVAC_M,-0.56,1.40,0.44)
+);
 
 reg(cabG,'hvac',new THREE.Vector3(-0.6,1.9,0));
 
@@ -825,17 +891,16 @@ gltfLoader.load('./tractor.glb', gltf => {
   const ctrW = bbW.getCenter(new THREE.Vector3());
   tractorMesh.position.set(-ctrW.x, -bbW.min.y, -ctrW.z);
 
-  // Enhance for PBR lighting — keep textures, fix material params
+  // Enhance PBR — override flat defaults from model file
   tractorMesh.traverse(o => {
     if(!o.isMesh) return;
     o.castShadow = true;
     o.receiveShadow = true;
     if(o.material && !Array.isArray(o.material)){
-      if(o.material.isMeshStandardMaterial){
-        o.material.roughness  = Math.max(0.3, Math.min(0.75, o.material.roughness || 0.7));
-        o.material.metalness  = Math.max(0.1, o.material.metalness || 0.1);
-        o.material.envMapIntensity = 0.8;
-      }
+      // Model ships with roughness=1 / metalness=0 — override to painted-steel values
+      o.material.roughness  = 0.42;
+      o.material.metalness  = 0.18;
+      o.material.envMapIntensity = 1.2;
       o.material.needsUpdate = true;
     }
     tractorMeshes.push(o);
